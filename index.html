@@ -4,541 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>축의금·부조금 자동 계산기</title>
-  <style>
-    /* Design System */
-    :root {
-      --color-white: rgba(255, 255, 255, 1);
-      --color-black: rgba(0, 0, 0, 1);
-      --color-cream-50: rgba(252, 252, 249, 1);
-      --color-cream-100: rgba(255, 255, 253, 1);
-      --color-gray-200: rgba(245, 245, 245, 1);
-      --color-gray-300: rgba(167, 169, 169, 1);
-      --color-gray-400: rgba(119, 124, 124, 1);
-      --color-slate-500: rgba(98, 108, 113, 1);
-      --color-brown-600: rgba(94, 82, 64, 1);
-      --color-charcoal-700: rgba(31, 33, 33, 1);
-      --color-charcoal-800: rgba(38, 40, 40, 1);
-      --color-slate-900: rgba(19, 52, 59, 1);
-      --color-teal-300: rgba(50, 184, 198, 1);
-      --color-teal-400: rgba(45, 166, 178, 1);
-      --color-teal-500: rgba(33, 128, 141, 1);
-      --color-teal-600: rgba(29, 116, 128, 1);
-      --color-teal-700: rgba(26, 104, 115, 1);
-      --color-brown-600-rgb: 94, 82, 64;
-      --color-teal-500-rgb: 33, 128, 141;
-      --color-slate-900-rgb: 19, 52, 59;
-      --color-background: var(--color-cream-50);
-      --color-surface: var(--color-cream-100);
-      --color-text: var(--color-slate-900);
-      --color-text-secondary: var(--color-slate-500);
-      --color-primary: var(--color-teal-500);
-      --color-primary-hover: var(--color-teal-600);
-      --color-primary-active: var(--color-teal-700);
-      --color-border: rgba(var(--color-brown-600-rgb), 0.2);
-      --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
-      --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-      --font-size-sm: 12px;
-      --font-size-base: 14px;
-      --font-size-lg: 16px;
-      --font-size-xl: 18px;
-      --font-size-2xl: 20px;
-      --font-size-3xl: 24px;
-      --font-size-4xl: 30px;
-      --font-weight-normal: 400;
-      --font-weight-medium: 500;
-      --font-weight-semibold: 550;
-      --font-weight-bold: 600;
-      --space-8: 8px;
-      --space-12: 12px;
-      --space-16: 16px;
-      --space-20: 20px;
-      --space-24: 24px;
-      --space-32: 32px;
-      --radius-base: 8px;
-      --radius-lg: 12px;
-      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --color-gray-400-rgb: 119, 124, 124;
-        --color-gray-300-rgb: 167, 169, 169;
-        --color-gray-200-rgb: 245, 245, 245;
-        --color-teal-300-rgb: 50, 184, 198;
-        --color-background: var(--color-charcoal-700);
-        --color-surface: var(--color-charcoal-800);
-        --color-text: var(--color-gray-200);
-        --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
-        --color-primary: var(--color-teal-300);
-        --color-primary-hover: var(--color-teal-400);
-        --color-border: rgba(var(--color-gray-400-rgb), 0.3);
-        --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
-      }
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: var(--font-family-base);
-      font-size: var(--font-size-base);
-      color: var(--color-text);
-      background-color: var(--color-background);
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: var(--space-24);
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: var(--space-32);
-    }
-
-    .header h1 {
-      font-size: var(--font-size-4xl);
-      font-weight: var(--font-weight-bold);
-      color: var(--color-text);
-      margin-bottom: var(--space-8);
-    }
-
-    .header p {
-      font-size: var(--font-size-base);
-      color: var(--color-text-secondary);
-    }
-
-    /* Upload Area */
-    .upload-section {
-      background: var(--color-surface);
-      border: 2px dashed var(--color-border);
-      border-radius: var(--radius-lg);
-      padding: var(--space-32);
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-bottom: var(--space-24);
-    }
-
-    .upload-section:hover {
-      border-color: var(--color-primary);
-      background: var(--color-background);
-    }
-
-    .upload-section.dragover {
-      border-color: var(--color-primary);
-      background: var(--color-background);
-      transform: scale(1.02);
-    }
-
-    .upload-icon {
-      font-size: 48px;
-      margin-bottom: var(--space-16);
-    }
-
-    .upload-text {
-      font-size: var(--font-size-lg);
-      color: var(--color-text);
-      margin-bottom: var(--space-8);
-    }
-
-    .upload-hint {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-secondary);
-    }
-
-    .file-input {
-      display: none;
-    }
-
-    /* Image Preview */
-    .preview-section {
-      display: none;
-      margin-bottom: var(--space-24);
-    }
-
-    .preview-section.active {
-      display: block;
-    }
-
-    .preview-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: var(--space-16);
-      margin-bottom: var(--space-16);
-    }
-
-    .preview-item {
-      position: relative;
-      background: var(--color-surface);
-      border: 1px solid var(--color-card-border);
-      border-radius: var(--radius-base);
-      padding: var(--space-8);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .preview-image {
-      width: 100%;
-      height: 120px;
-      object-fit: cover;
-      border-radius: var(--radius-base);
-      margin-bottom: var(--space-8);
-    }
-
-    .preview-name {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .preview-remove {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      cursor: pointer;
-      font-size: var(--font-size-base);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .preview-remove:hover {
-      background: rgba(0, 0, 0, 0.9);
-    }
-
-    /* Buttons */
-    .btn {
-      display: inline-block;
-      padding: var(--space-12) var(--space-24);
-      font-size: var(--font-size-base);
-      font-weight: var(--font-weight-medium);
-      border: none;
-      border-radius: var(--radius-base);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: center;
-    }
-
-    .btn-primary {
-      background: var(--color-primary);
-      color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: var(--color-primary-hover);
-    }
-
-    .btn-primary:active:not(:disabled) {
-      background: var(--color-primary-active);
-    }
-
-    .btn-secondary {
-      background: var(--color-surface);
-      color: var(--color-text);
-      border: 1px solid var(--color-border);
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background: var(--color-background);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: var(--space-12);
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    /* Loading */
-    .loading {
-      display: none;
-      text-align: center;
-      padding: var(--space-32);
-    }
-
-    .loading.active {
-      display: block;
-    }
-
-    .spinner {
-      border: 4px solid var(--color-border);
-      border-top: 4px solid var(--color-primary);
-      border-radius: 50%;
-      width: 48px;
-      height: 48px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto var(--space-16);
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      font-size: var(--font-size-lg);
-      color: var(--color-text-secondary);
-    }
-
-    /* Results Section */
-    .results-section {
-      display: none;
-    }
-
-    .results-section.active {
-      display: block;
-    }
-
-    .table-container {
-      overflow-x: auto;
-      background: var(--color-surface);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-      margin-bottom: var(--space-24);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    thead {
-      background: var(--color-background);
-    }
-
-    th, td {
-      padding: var(--space-12) var(--space-16);
-      text-align: left;
-      border-bottom: 1px solid var(--color-card-border);
-    }
-
-    th {
-      font-weight: var(--font-weight-semibold);
-      color: var(--color-text);
-      font-size: var(--font-size-sm);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    td {
-      font-size: var(--font-size-base);
-      color: var(--color-text);
-    }
-
-    tbody tr:hover {
-      background: var(--color-background);
-    }
-
-    tbody tr:nth-child(even) {
-      background: rgba(var(--color-brown-600-rgb), 0.02);
-    }
-
-    .amount-cell {
-      font-weight: var(--font-weight-medium);
-      text-align: right;
-    }
-
-    .number-cell {
-      text-align: center;
-      color: var(--color-text-secondary);
-    }
-
-    /* Total Section */
-    .total-section {
-      background: var(--color-surface);
-      border: 2px solid var(--color-primary);
-      border-radius: var(--radius-lg);
-      padding: var(--space-24);
-      text-align: center;
-      margin-bottom: var(--space-24);
-    }
-
-    .total-label {
-      font-size: var(--font-size-lg);
-      color: var(--color-text-secondary);
-      margin-bottom: var(--space-8);
-    }
-
-    .total-amount {
-      font-size: var(--font-size-4xl);
-      font-weight: var(--font-weight-bold);
-      color: var(--color-primary);
-      margin-bottom: var(--space-8);
-    }
-
-    .total-korean {
-      font-size: var(--font-size-xl);
-      color: var(--color-text-secondary);
-    }
-
-    /* Action Buttons */
-    .action-buttons {
-      display: flex;
-      gap: var(--space-12);
-      justify-content: center;
-      margin-bottom: var(--space-24);
-      flex-wrap: wrap;
-    }
-
-    /* Notification */
-    .notification {
-      position: fixed;
-      top: var(--space-24);
-      right: var(--space-24);
-      background: var(--color-primary);
-      color: white;
-      padding: var(--space-16) var(--space-24);
-      border-radius: var(--radius-base);
-      box-shadow: var(--shadow-md);
-      display: none;
-      z-index: 1000;
-      animation: slideIn 0.3s ease;
-      min-width: 280px;
-      text-align: center;
-    }
-
-    .notification.active {
-      display: block;
-    }
-
-    .notification.error {
-      background: #c01530;
-    }
-
-    .notification.success {
-      background: var(--color-primary);
-    }
-
-    @keyframes slideIn {
-      from {
-        transform: translateX(400px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-
-    /* Shared Result Banner */
-    .shared-banner {
-      background: var(--color-background);
-      border: 2px solid var(--color-primary);
-      border-radius: var(--radius-lg);
-      padding: var(--space-16);
-      margin-bottom: var(--space-24);
-      display: none;
-      align-items: center;
-      gap: var(--space-12);
-    }
-
-    .shared-banner.active {
-      display: flex;
-    }
-
-    .shared-banner-icon {
-      font-size: var(--font-size-3xl);
-    }
-
-    .shared-banner-text {
-      flex: 1;
-    }
-
-    .shared-banner-title {
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-semibold);
-      color: var(--color-primary);
-      margin-bottom: 4px;
-    }
-
-    .shared-banner-description {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-secondary);
-    }
-
-    /* Button States */
-    .btn.copied {
-      background: #22c55e;
-    }
-
-    .btn.loading {
-      opacity: 0.7;
-      cursor: wait;
-    }
-
-    /* Responsive */
-    @media (max-width: 767px) {
-      .container {
-        padding: var(--space-16);
-      }
-
-      .header h1 {
-        font-size: var(--font-size-3xl);
-      }
-
-      .upload-section {
-        padding: var(--space-24);
-      }
-
-      .preview-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        gap: var(--space-12);
-      }
-
-      .total-amount {
-        font-size: var(--font-size-3xl);
-      }
-
-      .action-buttons {
-        flex-direction: column;
-      }
-
-      .btn {
-        width: 100%;
-        min-height: 44px;
-      }
-
-      th, td {
-        padding: var(--space-8) var(--space-12);
-        font-size: var(--font-size-sm);
-      }
-
-      .notification {
-        left: var(--space-16);
-        right: var(--space-16);
-      }
-
-      /* Hide 'Add Images' button on mobile */
-      #addMoreBtn {
-        display: none !important;
-      }
-
-      /* Adjust button group spacing on mobile */
-      .btn-group {
-        gap: var(--space-12);
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
@@ -573,7 +39,6 @@
 
     <!-- Results Section -->
     <div class="results-section" id="resultsSection">
-      <!-- Shared Result Banner -->
       <div class="shared-banner" id="sharedBanner">
         <div class="shared-banner-icon">🔗</div>
         <div class="shared-banner-text">
@@ -609,34 +74,19 @@
     </div>
   </div>
 
-  <!-- Notification -->
   <div class="notification" id="notification"></div>
 
   <script>
-    // State management (in-memory only, no localStorage)
+    // ===== 서비스 워커 제거 =====
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(reg => reg.unregister());
+      });
+    }
+
+    // ===== 상태 초기화 =====
     let uploadedFiles = [];
     let extractedData = [];
-
-    // Sample data for simulation
-    const sampleData = [
-      { number: 33, name: "전기석", amount: "100,000", notes: "대 1인" },
-      { number: 34, name: "도라석", amount: "100,000", notes: "대 1인" },
-      { number: 35, name: "임정규", amount: "200,000", notes: "대 2인" },
-      { number: 36, name: "김세희", amount: "100,000", notes: "대 1인" },
-      { number: 37, name: "정희성", amount: "200,000", notes: "대 1인" },
-      { number: 38, name: "최형섭", amount: "100,000", notes: "대 1인" },
-      { number: 39, name: "김승욱", amount: "100,000", notes: "대 1인" },
-      { number: 40, name: "박경인", amount: "100,000", notes: "대 1인" },
-      { number: 41, name: "이남석", amount: "100,000", notes: "대 1인" },
-      { number: 42, name: "홍창의", amount: "100,000", notes: "대 1인" },
-      { number: 43, name: "한현미", amount: "100,000", notes: "대 1인" },
-      { number: 44, name: "민종기, 정진희", amount: "500,000", notes: "대 2인" },
-      { number: 45, name: "오거늘", amount: "100,000", notes: "대 1인, 소 1인" },
-      { number: 46, name: "이찬석", amount: "100,000", notes: "대 1인" },
-      { number: 47, name: "김희용", amount: "200,000", notes: "대 1인" }
-    ];
-
-    // DOM elements
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
     const previewSection = document.getElementById('previewSection');
@@ -652,372 +102,156 @@
     const copyLinkBtn = document.getElementById('copyLinkBtn');
     const resetBtn = document.getElementById('resetBtn');
     const notification = document.getElementById('notification');
+    const sharedBanner = document.getElementById('sharedBanner');
 
-    // Check for shared data in URL
-    window.addEventListener('DOMContentLoaded', () => {
-      loadSharedData();
-    });
+    function resetAppState() {
+      uploadedFiles = [];
+      extractedData = [];
 
-    // Load shared data from URL
-    function loadSharedData() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const encodedData = urlParams.get('data');
-      
-      if (encodedData) {
-        try {
-          // Decode the shared data
-          const decoded = JSON.parse(decodeURIComponent(atob(encodedData)));
-          
-          // Validate data structure
-          if (!Array.isArray(decoded) || decoded.length === 0) {
-            throw new Error('Invalid data structure');
-          }
-          
-          // Validate each row has required fields
-          const isValid = decoded.every(row => 
-            row.hasOwnProperty('number') && 
-            row.hasOwnProperty('name') && 
-            row.hasOwnProperty('amount') && 
-            row.hasOwnProperty('notes')
-          );
-          
-          if (!isValid) {
-            throw new Error('Invalid row structure');
-          }
-          
-          // Data is valid, display it
-          extractedData = decoded;
-          uploadArea.style.display = 'none';
-          previewSection.style.display = 'none';
-          displayResults();
-          showSharedBanner();
-          
-        } catch (err) {
-          console.error('Failed to decode shared data:', err);
-          showNotification('유효하지 않은 링크입니다', 'error');
-          clearUrlParameters();
-          resetToUploadView();
-        }
-      }
-    }
+      uploadArea.style.display = 'block';
+      previewSection.classList.remove('active');
+      previewGrid.innerHTML = '';
+      processBtn.disabled = true;
+      fileInput.value = '';
 
-    // Show shared result banner
-    function showSharedBanner() {
-      const banner = document.getElementById('sharedBanner');
-      if (banner) {
-        banner.classList.add('active');
-      }
-    }
+      resultsSection.classList.remove('active');
+      tableBody.innerHTML = '';
+      totalAmount.textContent = '0원';
+      totalKorean.textContent = '';
 
-    // Clear URL parameters
-    function clearUrlParameters() {
+      if (sharedBanner) sharedBanner.classList.remove('active');
+
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // Reset to upload view
-    function resetToUploadView() {
-      uploadArea.style.display = 'block';
-      previewSection.style.display = 'none';
-      resultsSection.classList.remove('active');
-    }
-
-    // Upload area click
-    uploadArea.addEventListener('click', () => {
-      fileInput.click();
+    // ===== 페이지 로딩 시 초기화 =====
+    window.addEventListener('DOMContentLoaded', () => {
+      resetAppState();
     });
 
-    // File input change
-    fileInput.addEventListener('change', (e) => {
-      handleFiles(e.target.files);
-    });
+    // ===== 업로드 & 미리보기 =====
+    uploadArea.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => handleFiles(e.target.files));
+    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', e => { e.preventDefault(); uploadArea.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
 
-    // Drag and drop
-    uploadArea.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadArea.classList.add('dragover');
-    });
-
-    uploadArea.addEventListener('dragleave', () => {
-      uploadArea.classList.remove('dragover');
-    });
-
-    uploadArea.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadArea.classList.remove('dragover');
-      handleFiles(e.dataTransfer.files);
-    });
-
-    // Handle files
     function handleFiles(files) {
-      const validFiles = Array.from(files).filter(file => {
-        return file.type === 'image/jpeg' || file.type === 'image/jpg' || file.type === 'image/png';
-      });
-
-      if (validFiles.length === 0) {
-        showNotification('JPG 또는 PNG 파일만 업로드 가능합니다');
-        return;
-      }
-
-      uploadedFiles = [...uploadedFiles, ...validFiles];
+      const validFiles = Array.from(files).filter(f => ['image/jpeg','image/jpg','image/png'].includes(f.type));
+      if (!validFiles.length) { showNotification('JPG 또는 PNG 파일만 업로드 가능합니다'); return; }
+      uploadedFiles.push(...validFiles);
       displayPreviews();
     }
 
-    // Display previews
     function displayPreviews() {
-      if (uploadedFiles.length === 0) {
-        previewSection.classList.remove('active');
-        return;
-      }
-
+      if (!uploadedFiles.length) { previewSection.classList.remove('active'); processBtn.disabled = true; return; }
       previewSection.classList.add('active');
       previewGrid.innerHTML = '';
-
-      uploadedFiles.forEach((file, index) => {
+      uploadedFiles.forEach((file, idx) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
-          const previewItem = document.createElement('div');
-          previewItem.className = 'preview-item';
-          previewItem.innerHTML = `
-            <button class="preview-remove" onclick="removeFile(${index})">&times;</button>
+        reader.onload = e => {
+          const div = document.createElement('div');
+          div.className = 'preview-item';
+          div.innerHTML = `
+            <button class="preview-remove" onclick="removeFile(${idx})">&times;</button>
             <img src="${e.target.result}" alt="${file.name}" class="preview-image">
-            <div class="preview-name">${file.name}</div>
-          `;
-          previewGrid.appendChild(previewItem);
+            <div class="preview-name">${file.name}</div>`;
+          previewGrid.appendChild(div);
         };
         reader.readAsDataURL(file);
       });
-
       processBtn.disabled = false;
     }
 
-    // Remove file
-    function removeFile(index) {
-      uploadedFiles.splice(index, 1);
+    function removeFile(idx) {
+      uploadedFiles.splice(idx,1);
       displayPreviews();
-      if (uploadedFiles.length === 0) {
-        processBtn.disabled = true;
-      }
     }
 
-    // Add more images
-    addMoreBtn.addEventListener('click', () => {
-      fileInput.click();
-    });
+    addMoreBtn.addEventListener('click', () => fileInput.click());
 
-    // Process button
+    // ===== OCR 처리 시뮬레이션 =====
+    const sampleData = [
+      { number: 1, name: "홍길동", amount: "100,000", notes: "" },
+      { number: 2, name: "김철수", amount: "200,000", notes: "" }
+    ];
+
     processBtn.addEventListener('click', () => {
-      processImages();
-    });
-
-    // Process images (simulate OCR)
-    function processImages() {
       loading.classList.add('active');
       uploadArea.style.display = 'none';
       previewSection.style.display = 'none';
 
-      // Simulate processing delay
       setTimeout(() => {
-        // Use sample data for simulation
-        extractedData = sampleData;
+        extractedData = sampleData; // OCR 데이터 반영
         loading.classList.remove('active');
         displayResults();
       }, 1500);
-    }
+    });
 
-    // Display results
     function displayResults() {
       resultsSection.classList.add('active');
       tableBody.innerHTML = '';
-
       let total = 0;
-
-      extractedData.forEach((row) => {
-        const tr = document.createElement('tr');
+      extractedData.forEach(row => {
         const amountNum = parseInt(row.amount.replace(/,/g, ''));
         total += amountNum;
-
+        const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="number-cell">${row.number}</td>
           <td>${row.name}</td>
           <td class="amount-cell">${row.amount}원</td>
-          <td>${row.notes}</td>
-        `;
+          <td>${row.notes}</td>`;
         tableBody.appendChild(tr);
       });
-
-      // Display total
       totalAmount.textContent = formatAmount(total) + '원';
       totalKorean.textContent = convertToKorean(total);
     }
 
-    // Format amount with commas
-    function formatAmount(num) {
-      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    function formatAmount(num) { return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+    function convertToKorean(amount) { 
+      if(amount<10000) return amount+'원'; 
+      const eok=Math.floor(amount/100000000), man=Math.floor((amount%100000000)/10000);
+      let r=''; if(eok>0){ r+=eok+'억'; if(man>0) r+=' '+man+'만원'; else r+='원'; } 
+      else if(man>0) r+=man+'만원'; 
+      return r; 
     }
 
-    // Convert to Korean format
-    function convertToKorean(amount) {
-      if (amount < 10000) {
-        return amount + '원';
-      }
-
-      const eok = Math.floor(amount / 100000000);
-      const man = Math.floor((amount % 100000000) / 10000);
-
-      let result = '';
-      if (eok > 0) {
-        result += eok + '억';
-        if (man > 0) {
-          result += ' ' + man + '만원';
-        } else {
-          result += '원';
-        }
-      } else if (man > 0) {
-        result += man + '만원';
-      }
-
-      return result;
-    }
-
-    // Download CSV
+    // ===== CSV 다운로드 =====
     downloadBtn.addEventListener('click', () => {
-      const csvContent = generateCSV();
-      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const csv = generateCSV();
+      const blob = new Blob(['\ufeff'+csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      const today = new Date();
-      const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-      link.setAttribute('href', url);
-      link.setAttribute('download', `축의금_부조금_${dateStr}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
+      link.href = URL.createObjectURL(blob);
+      const t=new Date(); link.download=`축의금_부조금_${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}${String(t.getDate()).padStart(2,'0')}.csv`;
       link.click();
-      document.body.removeChild(link);
       showNotification('CSV 파일이 다운로드되었습니다');
     });
-
-    // Generate CSV
     function generateCSV() {
-      let csv = '번호,성명,금액,비고\n';
-      extractedData.forEach((row) => {
-        csv += `${row.number},${row.name},${row.amount},${row.notes}\n`;
-      });
+      let csv='번호,성명,금액,비고\n';
+      extractedData.forEach(r => { csv+=`${r.number},${r.name},${r.amount},${r.notes}\n`; });
       return csv;
     }
 
-    // Copy link with proper encoding and fallback
+    // ===== 공유 링크 복사 =====
     copyLinkBtn.addEventListener('click', async () => {
-      await copyShareLink();
-    });
-
-    // Copy share link function
-    async function copyShareLink() {
       try {
-        // Encode data properly
-        const jsonString = JSON.stringify(extractedData);
-        const encoded = btoa(encodeURIComponent(jsonString));
+        const encoded = btoa(encodeURIComponent(JSON.stringify(extractedData)));
         const shareUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
-        
-        // Show loading state
-        copyLinkBtn.classList.add('loading');
-        copyLinkBtn.textContent = '처리 중...';
-        
-        // Try to copy to clipboard
-        let copySuccess = false;
-        
-        // Method 1: Modern Clipboard API
-        if (navigator.clipboard && window.isSecureContext) {
-          try {
-            await navigator.clipboard.writeText(shareUrl);
-            copySuccess = true;
-          } catch (err) {
-            console.log('Clipboard API failed, trying fallback');
-          }
-        }
-        
-        // Method 2: Fallback using execCommand
-        if (!copySuccess) {
-          try {
-            const textArea = document.createElement('textarea');
-            textArea.value = shareUrl;
-            textArea.style.position = 'fixed';
-            textArea.style.left = '-999999px';
-            textArea.style.top = '-999999px';
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            
-            const successful = document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            if (successful) {
-              copySuccess = true;
-            }
-          } catch (err) {
-            console.error('Fallback copy failed:', err);
-          }
-        }
-        
-        // Remove loading state
-        copyLinkBtn.classList.remove('loading');
-        
-        if (copySuccess) {
-          // Show success state
-          showNotification('링크가 복사되었습니다!', 'success');
-          copyLinkBtn.classList.add('copied');
-          copyLinkBtn.textContent = '복사됨 ✓';
-          
-          // Reset button after 2 seconds
-          setTimeout(() => {
-            copyLinkBtn.classList.remove('copied');
-            copyLinkBtn.textContent = '링크 복사';
-          }, 2000);
-        } else {
-          showNotification('링크 복사에 실패했습니다. 다시 시도해주세요.', 'error');
-          copyLinkBtn.textContent = '링크 복사';
-        }
-        
-      } catch (err) {
-        console.error('Copy error:', err);
-        copyLinkBtn.classList.remove('loading');
-        copyLinkBtn.textContent = '링크 복사';
+        await navigator.clipboard.writeText(shareUrl);
+        showNotification('링크가 복사되었습니다!', 'success');
+      } catch {
         showNotification('링크 복사에 실패했습니다', 'error');
       }
-    }
-
-    // Reset button
-    resetBtn.addEventListener('click', () => {
-      uploadedFiles = [];
-      extractedData = [];
-      resultsSection.classList.remove('active');
-      previewSection.classList.remove('active');
-      uploadArea.style.display = 'block';
-      previewGrid.innerHTML = '';
-      processBtn.disabled = true;
-      fileInput.value = '';
-      
-      // Hide shared banner
-      const banner = document.getElementById('sharedBanner');
-      if (banner) {
-        banner.classList.remove('active');
-      }
-      
-      // Clear URL parameters
-      clearUrlParameters();
-      
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
-    // Show notification with type
-    function showNotification(message, type = 'success') {
-      notification.textContent = message;
-      notification.className = 'notification';
-      notification.classList.add('active', type);
-      
-      setTimeout(() => {
-        notification.classList.remove('active');
-      }, 3000);
+    // ===== 리셋 버튼 =====
+    resetBtn.addEventListener('click', resetAppState);
+
+    // ===== 알림 =====
+    function showNotification(msg,type='success') {
+      notification.textContent=msg;
+      notification.className=`notification active ${type}`;
+      setTimeout(()=>notification.classList.remove('active'),3000);
     }
   </script>
 </body>
