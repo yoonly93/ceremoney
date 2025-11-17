@@ -39,7 +39,7 @@
 <button id="downloadBtn">CSV 다운로드</button>
 
 <script type="module">
-import { PaddleOcrService } from './paddleocr-browser.js'; // 직접 준비한 브라우저용 JS 모듈
+import { initPaddleOCR, recognizeImage } from './paddleocr-browser.js';
 
 const imageInput = document.getElementById('imageInput');
 const resultTableBody = document.getElementById('resultTable').querySelector('tbody');
@@ -48,21 +48,11 @@ const previewDiv = document.getElementById('preview');
 const downloadBtn = document.getElementById('downloadBtn');
 let allData = [];
 
-async function initOCR() {
-  // 모델 로드
-  const detBuffer = await fetch('./models/ppocr_det.onnx').then(r=>r.arrayBuffer());
-  const recBuffer = await fetch('./models/ppocr_rec.onnx').then(r=>r.arrayBuffer());
-  const dict = (await fetch('./models/ppocr_dict.txt').then(r=>r.text())).split('\n').map(s=>s.trim());
+let ocrService;
 
-  return await PaddleOcrService.createInstance({
-    ort,
-    detection: { modelBuffer: detBuffer },
-    recognition: { modelBuffer: recBuffer, charactersDictionary: dict },
-    cv
-  });
-}
+initPaddleOCR().then(service => {
+  ocrService = service;
 
-initOCR().then(ocrService => {
   imageInput.addEventListener('change', async (event) => {
     const files = Array.from(event.target.files);
     if (!files.length) return;
@@ -78,51 +68,13 @@ initOCR().then(ocrService => {
       const img = new Image();
       img.src = URL.createObjectURL(file);
       await img.decode();
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      const result = await ocrService.recognize({
-        width: canvas.width,
-        height: canvas.height,
-        data: imageData.data
-      });
+      const rows = await recognizeImage(img, ocrService);
 
-      // 좌표 기반 정렬 + 테이블 삽입
-      const rowThreshold = 15;
-      let rows = [];
-      result.forEach(word => {
-        if (!word.text.trim() || word.text.includes('합계')) return;
-        let added = false;
-        for (let row of rows) {
-          if (Math.abs(word.bbox.y0 - row.avgTop) < rowThreshold) {
-            row.words.push(word);
-            row.avgTop = row.words.reduce((sum, w)=>sum+w.bbox.y0,0)/row.words.length;
-            added = true;
-            break;
-          }
-        }
-        if (!added) rows.push({ words:[word], avgTop: word.bbox.y0 });
-      });
-
-      rows.sort((a,b)=>a.avgTop-b.avgTop);
-
-      rows.forEach(row=>{
-        row.words.sort((a,b)=>a.bbox.x0-b.bbox.x0);
-        const cells = [];
-        cells.push(row.words[0]?.text||'');
-        cells.push(row.words[1]?.text||'');
-        let amount = row.words[2]?.text.replace(/[^\d]/g,'') || '';
-        amount = amount ? parseInt(amount)*1000 : '';
-        cells.push(amount);
-        cells.push(row.words.slice(3).map(w=>w.text).join(' '));
+      rows.forEach(cells => {
         allData.push(cells);
-
         const tr = document.createElement('tr');
-        cells.forEach(c=>{
+        cells.forEach(c => {
           const td = document.createElement('td'); td.textContent = c; tr.appendChild(td);
         });
         resultTableBody.appendChild(tr);
