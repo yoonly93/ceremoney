@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이미지 → 테이블 OCR 테스트</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; margin-top: 20px; }
+    td { border: 1px solid #000; padding: 4px 8px; }
+    #preview { margin-top: 10px; max-width: 100%; height: auto; border: 1px solid #ccc; }
+    #loader { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>이미지 → 테이블 OCR 테스트</h1>
+
+  <input type="file" id="imageInput" accept="image/*">
+  <div>
+    <img id="preview" src="" alt="이미지 미리보기">
+  </div>
+  <div id="loader"></div>
+  <div id="tableContainer"></div>
+
+  <script>
+    const input = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const loader = document.getElementById('loader');
+    const container = document.getElementById('tableContainer');
+
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        preview.src = reader.result;
+        loader.textContent = 'OCR 진행 중... 잠시만 기다려주세요.';
+        container.innerHTML = '';
+
+        Tesseract.recognize(reader.result, 'kor+eng', { logger: m => console.log(m) })
+        .then(({ data }) => {
+          const tsv = data.tsv.split('\n').slice(1);
+          const lines = [];
+
+          tsv.forEach(line => {
+            const parts = line.split('\t');
+            const text = parts[11].trim();
+            const top = parseInt(parts[3]);
+            const left = parseInt(parts[2]);
+
+            if (!text) return;
+
+            let row = lines.find(r => Math.abs(r.top - top) < 10);
+            if (!row) {
+              row = { top, cells: [] };
+              lines.push(row);
+            }
+            row.cells.push({ left, text });
+          });
+
+          lines.sort((a,b) => a.top - b.top);
+          const table = document.createElement('table');
+          lines.forEach(row => {
+            row.cells.sort((a,b) => a.left - b.left);
+            const tr = document.createElement('tr');
+            row.cells.forEach(cell => {
+              const td = document.createElement('td');
+              td.textContent = cell.text;
+              tr.appendChild(td);
+            });
+            table.appendChild(tr);
+          });
+
+          container.appendChild(table);
+          loader.textContent = 'OCR 완료';
+        })
+        .catch(err => {
+          loader.textContent = 'OCR 오류: ' + err;
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
