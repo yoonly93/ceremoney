@@ -1,61 +1,151 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>브라우저 OCR – PaddleOCR + ONNX</title>
+  <meta charset="UTF-8">
+  <title>축의금/조의금 OCR 계산기 (PaddleOCR ONNX)</title>
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
+    #preview img { max-width: 100px; max-height: 100px; margin: 5px; border: 1px solid #ccc; }
+    #downloadBtn { margin-top: 10px; padding: 5px 10px; }
+    tfoot td { font-weight: bold; }
+  </style>
 </head>
 <body>
-  <h2>PaddleOCR (ONNX) Browser OCR</h2>
-  <input type="file" id="input" accept="image/*" />
-  <canvas id="canvas" style="display: none;"></canvas>
-  <pre id="output"></pre>
+<h2>축의금/조의금 OCR 계산기 (PaddleOCR ONNX)</h2>
+<input type="file" id="imageInput" accept="image/*" multiple>
+<div id="preview"></div>
+<table id="resultTable">
+  <thead>
+    <tr>
+      <th>번호</th>
+      <th>성명</th>
+      <th>축의금/조의금</th>
+      <th>비고</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2">합계</td>
+      <td id="totalAmount">0</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+<button id="downloadBtn">CSV 다운로드</button>
 
-  <script type="module">
-    import { PaddleOcrService } from 'https://cdn.jsdelivr.net/npm/paddleocr@1.0.2/dist/paddleocr.min.js';
+<script type="module">
+import { PaddleOcrService } from './paddleocr-browser.js'; // 직접 준비한 브라우저용 JS 모듈
 
-    (async () => {
-      // ONNX 모델 파일을 fetch로 가져오기
-      const detResp = await fetch('ppocr_det.onnx');
-      const recResp = await fetch('ppocr_rec.onnx');
-      const dictResp = await fetch('ppocr_dict.txt');
+const imageInput = document.getElementById('imageInput');
+const resultTableBody = document.getElementById('resultTable').querySelector('tbody');
+const totalAmountTd = document.getElementById('totalAmount');
+const previewDiv = document.getElementById('preview');
+const downloadBtn = document.getElementById('downloadBtn');
+let allData = [];
 
-      const detBuffer = await detResp.arrayBuffer();
-      const recBuffer = await recResp.arrayBuffer();
-      const dictText = await dictResp.text();
-      const dict = dictText.split('\n').map(s => s.trim());
+async function initOCR() {
+  // 모델 로드
+  const detBuffer = await fetch('./models/ppocr_det.onnx').then(r=>r.arrayBuffer());
+  const recBuffer = await fetch('./models/ppocr_rec.onnx').then(r=>r.arrayBuffer());
+  const dict = (await fetch('./models/ppocr_dict.txt').then(r=>r.text())).split('\n').map(s=>s.trim());
 
-      // OCR 서비스 생성
-      const ocrService = await PaddleOcrService.createInstance({
-        ort: ort,  // onnxruntime-web
-        detection: { modelBuffer: detBuffer },
-        recognition: { modelBuffer: recBuffer, charactersDictionary: dict }
+  return await PaddleOcrService.createInstance({
+    ort,
+    detection: { modelBuffer: detBuffer },
+    recognition: { modelBuffer: recBuffer, charactersDictionary: dict },
+    cv
+  });
+}
+
+initOCR().then(ocrService => {
+  imageInput.addEventListener('change', async (event) => {
+    const files = Array.from(event.target.files);
+    if (!files.length) return;
+    previewDiv.innerHTML = '';
+    resultTableBody.innerHTML = '<tr><td colspan="4">OCR 처리 중...</td></tr>';
+    allData = [];
+
+    for (const file of files) {
+      const thumb = document.createElement('img');
+      thumb.src = URL.createObjectURL(file);
+      previewDiv.appendChild(thumb);
+
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      const result = await ocrService.recognize({
+        width: canvas.width,
+        height: canvas.height,
+        data: imageData.data
       });
 
-      document.getElementById('input').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        const img = new Image();
-        img.src = URL.createObjectURL(file);
-        await img.decode();
+      // 좌표 기반 정렬 + 테이블 삽입
+      const rowThreshold = 15;
+      let rows = [];
+      result.forEach(word => {
+        if (!word.text.trim() || word.text.includes('합계')) return;
+        let added = false;
+        for (let row of rows) {
+          if (Math.abs(word.bbox.y0 - row.avgTop) < rowThreshold) {
+            row.words.push(word);
+            row.avgTop = row.words.reduce((sum, w)=>sum+w.bbox.y0,0)/row.words.length;
+            added = true;
+            break;
+          }
+        }
+        if (!added) rows.push({ words:[word], avgTop: word.bbox.y0 });
+      });
 
-        // 이미지 캔버스로 복사
-        const canvas = document.getElementById('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      rows.sort((a,b)=>a.avgTop-b.avgTop);
 
-        // OCR 실행
-        const result = await ocrService.recognize({
-          width: canvas.width,
-          height: canvas.height,
-          data: imageData.data
+      rows.forEach(row=>{
+        row.words.sort((a,b)=>a.bbox.x0-b.bbox.x0);
+        const cells = [];
+        cells.push(row.words[0]?.text||'');
+        cells.push(row.words[1]?.text||'');
+        let amount = row.words[2]?.text.replace(/[^\d]/g,'') || '';
+        amount = amount ? parseInt(amount)*1000 : '';
+        cells.push(amount);
+        cells.push(row.words.slice(3).map(w=>w.text).join(' '));
+        allData.push(cells);
+
+        const tr = document.createElement('tr');
+        cells.forEach(c=>{
+          const td = document.createElement('td'); td.textContent = c; tr.appendChild(td);
         });
-
-        document.getElementById('output').textContent = JSON.stringify(result, null, 2);
+        resultTableBody.appendChild(tr);
       });
-    })();
-  </script>
+    }
+
+    const total = allData.reduce((sum,row)=>sum+(parseInt(row[2])||0),0);
+    totalAmountTd.textContent = total.toLocaleString();
+  });
+
+  downloadBtn.addEventListener('click', ()=>{
+    if (!allData.length) return alert('데이터가 없습니다.');
+    const csvContent = [
+      ['번호','성명','축의금/조의금','비고'],
+      ...allData
+    ].map(e=>e.join(',')).join('\n');
+    const blob = new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = '축의금_조의금_결과.csv';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  });
+});
+</script>
 </body>
 </html>
