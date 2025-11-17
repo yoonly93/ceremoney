@@ -1,0 +1,6 @@
+paddlepaddle-macos
+paddleocr
+pytesseract
+opencv-python
+pillow
+numpy
