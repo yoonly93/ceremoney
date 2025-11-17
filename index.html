@@ -41,16 +41,16 @@
 
         Tesseract.recognize(reader.result, 'kor+eng', { logger: m => console.log(m) })
         .then(({ data }) => {
-          const tsv = data.tsv.split('\n').slice(1);
+          const tsv = (data.tsv || '').split('\n').slice(1);
           const lines = [];
 
           tsv.forEach(line => {
             const parts = line.split('\t');
-            const text = parts[11].trim();
-            const top = parseInt(parts[3]);
-            const left = parseInt(parts[2]);
+            const text = parts[11] ? parts[11].trim() : '';
+            const top = parseInt(parts[3] || 0);
+            const left = parseInt(parts[2] || 0);
 
-            if (!text) return;
+            if (!text) return; // 텍스트 없는 셀은 건너뜀
 
             let row = lines.find(r => Math.abs(r.top - top) < 10);
             if (!row) {
