@@ -1,89 +1,122 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>이미지 → 안전한 표 OCR</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
-    td { border: 1px solid #000; padding: 4px 8px; text-align: center; }
-    #preview { margin-top: 10px; max-width: 100%; height: auto; border: 1px solid #ccc; }
-    #loader { margin-top: 10px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>축의금/조의금 이미지 변환 계산기표</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+<style>
+  body { font-family: sans-serif; padding: 20px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+  th, td { border: 1px solid #000; padding: 6px 12px; text-align: center; }
+  th { background-color: #f0f0f0; }
+  #preview { margin-top: 10px; max-width: 100%; height: auto; border: 1px solid #ccc; }
+  #loader { margin-top: 10px; }
+</style>
 </head>
 <body>
-  <h1>이미지 → 표 OCR 테스트</h1>
 
-  <input type="file" id="imageInput" accept="image/*">
-  <div>
-    <img id="preview" src="" alt="이미지 미리보기">
-  </div>
-  <div id="loader"></div>
-  <div id="tableContainer"></div>
+<h1>축의금/조의금 이미지 변환 계산기</h1>
 
-  <script>
-    const input = document.getElementById('imageInput');
-    const preview = document.getElementById('preview');
-    const loader = document.getElementById('loader');
-    const container = document.getElementById('tableContainer');
+<input type="file" id="imageInput" accept="image/*">
+<div>
+  <img id="preview" src="" alt="이미지 미리보기">
+</div>
+<div id="loader"></div>
+<div id="tableContainer"></div>
 
-    input.addEventListener('change', () => {
-      const file = input.files[0];
-      if (!file) return;
+<script>
+const input = document.getElementById('imageInput');
+const preview = document.getElementById('preview');
+const loader = document.getElementById('loader');
+const container = document.getElementById('tableContainer');
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        preview.src = reader.result;
-        loader.textContent = 'OCR 진행 중... 잠시만 기다려주세요.';
-        container.innerHTML = '';
+input.addEventListener('change', () => {
+  const file = input.files[0];
+  if (!file) return;
 
-        Tesseract.recognize(reader.result, 'kor+eng', { logger: m => console.log(m) })
-        .then(({ data }) => {
-          const tsv = (data.tsv || '').split('\n').slice(1);
-          const rowsMap = new Map();
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.src = reader.result;
+    loader.textContent = 'OCR 진행 중... 잠시만 기다려주세요.';
+    container.innerHTML = '';
 
-          // TSV 글자 단위 안전 처리
-          tsv.forEach(line => {
-            const parts = line.split('\t');
-            if (parts.length < 12) return; // text 필드 없으면 건너뜀
-            const text = parts[11].trim();
-            if (!text) return;
+    Tesseract.recognize(reader.result, 'kor+eng', { logger: m => console.log(m) })
+    .then(({ data }) => {
+      const tsv = (data.tsv || '').split('\n').slice(1);
+      const rowsMap = new Map();
 
-            const top = parseInt(parts[3] || 0);
-            const left = parseInt(parts[2] || 0);
+      tsv.forEach(line => {
+        const parts = line.split('\t');
+        if (parts.length < 12) return;
+        const text = parts[11].trim();
+        if (!text || text.includes("합계")) return; // 합계 무시
 
-            // 동일 top 좌표끼리 행 그룹
-            if (!rowsMap.has(top)) rowsMap.set(top, []);
-            rowsMap.get(top).push({ left, text });
-          });
+        const top = parseInt(parts[3] || 0);
+        const left = parseInt(parts[2] || 0);
 
-          // 행 정렬
-          const sortedRows = Array.from(rowsMap.entries()).sort((a,b) => a[0]-b[0]);
+        if (!rowsMap.has(top)) rowsMap.set(top, []);
+        rowsMap.get(top).push({ left, text });
+      });
 
-          // HTML 테이블 생성
-          const table = document.createElement('table');
-          sortedRows.forEach(([_, cells]) => {
-            cells.sort((a,b) => a.left - b.left);
-            const tr = document.createElement('tr');
-            cells.forEach(cell => {
-              const td = document.createElement('td');
-              td.textContent = cell.text;
-              tr.appendChild(td);
-            });
-            table.appendChild(tr);
-          });
+      // 행 정렬
+      const sortedRows = Array.from(rowsMap.entries()).sort((a,b) => a[0]-b[0]);
 
-          container.appendChild(table);
-          loader.textContent = 'OCR 완료';
-        })
-        .catch(err => {
-          loader.textContent = 'OCR 오류: ' + err;
-        });
-      };
-      reader.readAsDataURL(file);
+      // HTML 테이블 생성
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const header = document.createElement('tr');
+      ['번호','성명','축의금/조의금','비고'].forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        header.appendChild(th);
+      });
+      thead.appendChild(header);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+
+      let rowNumber = 1;
+      sortedRows.forEach(([_, cells]) => {
+        cells.sort((a,b) => a.left - b.left);
+        const tr = document.createElement('tr');
+
+        // 번호
+        const tdNum = document.createElement('td');
+        tdNum.textContent = rowNumber++;
+        tr.appendChild(tdNum);
+
+        // 성명
+        const tdName = document.createElement('td');
+        tdName.textContent = cells[0]?.text || '';
+        tr.appendChild(tdName);
+
+        // 축의금/조의금
+        const tdAmount = document.createElement('td');
+        const amountStr = cells[1]?.text || '';
+        const num = parseInt(amountStr.replace(/[^0-9]/g, '')) * 1000 || 0;
+        tdAmount.textContent = num.toLocaleString('ko-KR');
+        tr.appendChild(tdAmount);
+
+        // 비고
+        const tdNote = document.createElement('td');
+        tdNote.textContent = cells[2]?.text || '';
+        tr.appendChild(tdNote);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      container.appendChild(table);
+      loader.textContent = 'OCR 완료';
+    })
+    .catch(err => {
+      loader.textContent = 'OCR 오류: ' + err;
     });
-  </script>
+  };
+  reader.readAsDataURL(file);
+});
+</script>
+
 </body>
 </html>
