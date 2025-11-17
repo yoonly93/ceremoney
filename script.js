@@ -91,19 +91,42 @@ function removeFile(idx) {
 
 addMoreBtn.addEventListener('click', () => fileInput.click());
 
-// ===== OCR 처리 시뮬레이션 =====
-const sampleData = [
-  { number: 1, name: "홍길동", amount: "100,000", notes: "" },
-  { number: 2, name: "김철수", amount: "200,000", notes: "" }
-];
+// ===== OCR 텍스트 라인 파싱 =====
+function parseOCRLine(line, index) {
+  // 원화 생략 처리: ₩100,- → 100,000
+  const amountMatch = line.match(/₩(\d+),-\b/);
+  const amount = amountMatch ? String(parseInt(amountMatch[1]) * 1000) : '0';
 
+  // 이름 추출 (숫자·금액 뒤에 오는 텍스트)
+  const nameMatch = line.match(/\d*\s*([가-힣]+)/);
+  const name = nameMatch ? nameMatch[1] : '';
+
+  // 비고: 한자 대/소 처리
+  const notesMatch = line.match(/(大|小)\d+/);
+  const notes = notesMatch ? notesMatch[0] : '';
+
+  return {
+    number: index,
+    name: name,
+    amount: amount,
+    notes: notes
+  };
+}
+
+// ===== OCR 처리 시뮬레이션 =====
 processBtn.addEventListener('click', () => {
   loading.classList.add('active');
   uploadArea.style.display = 'none';
   previewSection.style.display = 'none';
 
   setTimeout(() => {
-    extractedData = sampleData;
+    // 샘플 OCR 텍스트
+    const ocrTextLines = [
+      "홍길동 ₩100,- 大1",
+      "김철수 ₩200,- 小2"
+    ];
+    extractedData = ocrTextLines.map((line, idx) => parseOCRLine(line, idx + 1));
+
     loading.classList.remove('active');
     displayResults();
   }, 1500);
@@ -120,7 +143,7 @@ function displayResults() {
     tr.innerHTML = `
       <td class="number-cell">${row.number}</td>
       <td>${row.name}</td>
-      <td class="amount-cell">${row.amount}원</td>
+      <td class="amount-cell">${formatAmount(amountNum)}원</td>
       <td>${row.notes}</td>`;
     tableBody.appendChild(tr);
   });
