@@ -2,18 +2,22 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>축의금/조의금 OCR</title>
+<title>축의금/조의금 이미지변환 계산기 (합계 & CSV)</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 <style>
   body { font-family: sans-serif; margin: 20px; }
   table { border-collapse: collapse; width: 100%; margin-top: 20px; }
   th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
+  #preview img { max-width: 100px; max-height: 100px; margin: 5px; border: 1px solid #ccc; }
+  #downloadBtn { margin-top: 10px; padding: 5px 10px; }
+  tfoot td { font-weight: bold; }
 </style>
 </head>
 <body>
 
-<h2>축의금/조의금 OCR</h2>
-<input type="file" id="imageInput" accept="image/*">
+<h2>축의금/조의금 이미지변환 계산기 (합계 & CSV)</h2>
+<input type="file" id="imageInput" accept="image/*" multiple>
+<div id="preview"></div>
 <table id="resultTable">
   <thead>
     <tr>
@@ -24,63 +28,127 @@
     </tr>
   </thead>
   <tbody></tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2">합계</td>
+      <td id="totalAmount">0</td>
+      <td></td>
+    </tr>
+  </tfoot>
 </table>
+<button id="downloadBtn">CSV 다운로드</button>
 
 <script>
 const imageInput = document.getElementById('imageInput');
-const resultTable = document.getElementById('resultTable').querySelector('tbody');
+const resultTableBody = document.getElementById('resultTable').querySelector('tbody');
+const totalAmountTd = document.getElementById('totalAmount');
+const previewDiv = document.getElementById('preview');
+const downloadBtn = document.getElementById('downloadBtn');
+let allData = [];
 
-imageInput.addEventListener('change', async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const imgURL = URL.createObjectURL(file);
-  resultTable.innerHTML = '<tr><td colspan="4">OCR 처리 중...</td></tr>';
-
-  const { data: { words } } = await Tesseract.recognize(imgURL, 'kor', { logger: m => console.log(m) });
-
-  // 좌표 기준 행 그룹화 (top 기준)
-  const rowThreshold = 10; // 같은 행으로 볼 최소 차이
-  let rows = [];
-  words.forEach(word => {
-    if (word.text.trim() === '' || word.text.includes('합계')) return;
-    let added = false;
-    for (let row of rows) {
-      if (Math.abs(word.bbox.y0 - row.avgTop) < rowThreshold) {
-        row.words.push(word);
-        row.avgTop = row.words.reduce((sum, w) => sum + w.bbox.y0, 0) / row.words.length;
-        added = true;
-        break;
+// 이미지 전처리: 그레이스케일 + 이진화
+function preprocessImage(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+        const binary = gray > 150 ? 255 : 0;
+        data[i] = data[i+1] = data[i+2] = binary;
       }
-    }
-    if (!added) {
-      rows.push({ words: [word], avgTop: word.bbox.y0 });
-    }
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL());
+    };
+    img.src = URL.createObjectURL(file);
   });
+}
 
-  // 각 행에서 좌표 기준 열 정렬
-  rows.sort((a, b) => a.avgTop - b.avgTop);
-  resultTable.innerHTML = '';
-  rows.forEach(row => {
-    row.words.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+// OCR 및 테이블 추가
+imageInput.addEventListener('change', async (event) => {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
 
-    // 단순 매핑: 번호 / 성명 / 금액 / 비고
-    const cells = [];
-    cells.push(row.words[0]?.text || '');
-    cells.push(row.words[1]?.text || '');
-    let amount = row.words[2]?.text.replace(/[^\d]/g,'') || '';
-    amount = amount ? parseInt(amount) * 1000 : '';
-    cells.push(amount);
-    cells.push(row.words.slice(3).map(w => w.text).join(' '));
+  previewDiv.innerHTML = '';
+  resultTableBody.innerHTML = '<tr><td colspan="4">OCR 처리 중...</td></tr>';
+  allData = [];
 
-    const tr = document.createElement('tr');
-    cells.forEach(c => {
-      const td = document.createElement('td');
-      td.textContent = c;
-      tr.appendChild(td);
+  for (const file of files) {
+    // 썸네일
+    const thumb = document.createElement('img');
+    thumb.src = URL.createObjectURL(file);
+    previewDiv.appendChild(thumb);
+
+    const preprocessedURL = await preprocessImage(file);
+    const { data: { words } } = await Tesseract.recognize(preprocessedURL, 'kor', { logger: m => console.log(m) });
+
+    const rowThreshold = 15;
+    let rows = [];
+    words.forEach(word => {
+      if (word.text.trim() === '' || word.text.includes('합계')) return;
+      let added = false;
+      for (let row of rows) {
+        if (Math.abs(word.bbox.y0 - row.avgTop) < rowThreshold) {
+          row.words.push(word);
+          row.avgTop = row.words.reduce((sum, w) => sum + w.bbox.y0, 0) / row.words.length;
+          added = true;
+          break;
+        }
+      }
+      if (!added) rows.push({ words: [word], avgTop: word.bbox.y0 });
     });
-    resultTable.appendChild(tr);
-  });
+
+    rows.sort((a,b)=>a.avgTop - b.avgTop);
+
+    rows.forEach(row => {
+      row.words.sort((a,b)=>a.bbox.x0 - b.bbox.x0);
+      const cells = [];
+      cells.push(row.words[0]?.text || '');
+      cells.push(row.words[1]?.text || '');
+      let amount = row.words[2]?.text.replace(/[^\d]/g,'') || '';
+      amount = amount ? parseInt(amount) * 1000 : '';
+      cells.push(amount);
+      cells.push(row.words.slice(3).map(w=>w.text).join(' '));
+
+      allData.push(cells);
+
+      const tr = document.createElement('tr');
+      cells.forEach(c => {
+        const td = document.createElement('td');
+        td.textContent = c;
+        tr.appendChild(td);
+      });
+      resultTableBody.appendChild(tr);
+    });
+  }
+
+  // 합계 계산
+  const total = allData.reduce((sum,row) => sum + (parseInt(row[2]) || 0), 0);
+  totalAmountTd.textContent = total.toLocaleString();
+});
+
+// CSV 다운로드
+downloadBtn.addEventListener('click', () => {
+  if (!allData.length) return alert('데이터가 없습니다.');
+  const csvContent = [
+    ['번호','성명','축의금/조의금','비고'],
+    ...allData
+  ].map(e => e.join(',')).join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '축의금_조의금_결과.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 });
 </script>
 
