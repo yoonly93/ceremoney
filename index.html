@@ -1,103 +1,40 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <title>축의금/조의금 OCR 계산기 (PaddleOCR ONNX)</title>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-  <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
-    #preview img { max-width: 100px; max-height: 100px; margin: 5px; border: 1px solid #ccc; }
-    #downloadBtn { margin-top: 10px; padding: 5px 10px; }
-    tfoot td { font-weight: bold; }
-  </style>
-</head>
-<body>
-<h2>축의금/조의금 OCR 계산기 (PaddleOCR ONNX)</h2>
-<input type="file" id="imageInput" accept="image/*" multiple>
-<div id="preview"></div>
-<table id="resultTable">
-  <thead>
-    <tr>
-      <th>번호</th>
-      <th>성명</th>
-      <th>축의금/조의금</th>
-      <th>비고</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-  <tfoot>
-    <tr>
-      <td colspan="2">합계</td>
-      <td id="totalAmount">0</td>
-      <td></td>
-    </tr>
-  </tfoot>
-</table>
-<button id="downloadBtn">CSV 다운로드</button>
+imageInput.addEventListener('change', async (event) => {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
 
-<script type="module">
-import { initPaddleOCR, recognizeImage } from './paddleocr-browser.js';
+  // 썸네일 초기화
+  previewDiv.innerHTML = '';
+  resultTableBody.innerHTML = '<tr><td colspan="4">OCR 처리 중...</td></tr>';
+  allData = [];
 
-const imageInput = document.getElementById('imageInput');
-const resultTableBody = document.getElementById('resultTable').querySelector('tbody');
-const totalAmountTd = document.getElementById('totalAmount');
-const previewDiv = document.getElementById('preview');
-const downloadBtn = document.getElementById('downloadBtn');
-let allData = [];
+  for (const file of files) {
+    // 썸네일 표시
+    const thumb = document.createElement('img');
+    thumb.src = URL.createObjectURL(file);
+    previewDiv.appendChild(thumb);
 
-let ocrService;
+    // 이미지 디코딩
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await img.decode();
 
-initPaddleOCR().then(service => {
-  ocrService = service;
+    // OCR 실행
+    const rows = await recognizeImage(img, ocrService);
 
-  imageInput.addEventListener('change', async (event) => {
-    const files = Array.from(event.target.files);
-    if (!files.length) return;
-    previewDiv.innerHTML = '';
-    resultTableBody.innerHTML = '<tr><td colspan="4">OCR 처리 중...</td></tr>';
-    allData = [];
-
-    for (const file of files) {
-      const thumb = document.createElement('img');
-      thumb.src = URL.createObjectURL(file);
-      previewDiv.appendChild(thumb);
-
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      await img.decode();
-
-      const rows = await recognizeImage(img, ocrService);
-
-      rows.forEach(cells => {
-        allData.push(cells);
-        const tr = document.createElement('tr');
-        cells.forEach(c => {
-          const td = document.createElement('td'); td.textContent = c; tr.appendChild(td);
-        });
-        resultTableBody.appendChild(tr);
+    // 테이블에 결과 추가
+    rows.forEach(cells => {
+      allData.push(cells);
+      const tr = document.createElement('tr');
+      cells.forEach(c => {
+        const td = document.createElement('td');
+        td.textContent = c;
+        tr.appendChild(td);
       });
-    }
+      resultTableBody.appendChild(tr);
+    });
+  }
 
-    const total = allData.reduce((sum,row)=>sum+(parseInt(row[2])||0),0);
-    totalAmountTd.textContent = total.toLocaleString();
-  });
-
-  downloadBtn.addEventListener('click', ()=>{
-    if (!allData.length) return alert('데이터가 없습니다.');
-    const csvContent = [
-      ['번호','성명','축의금/조의금','비고'],
-      ...allData
-    ].map(e=>e.join(',')).join('\n');
-    const blob = new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = '축의금_조의금_결과.csv';
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  });
+  // 합계 계산
+  const total = allData.reduce((sum,row)=>sum+(parseInt(row[2])||0),0);
+  totalAmountTd.textContent = total.toLocaleString();
 });
-</script>
-</body>
-</html>
