@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>이미지 → 실제 표 OCR</title>
+  <title>이미지 → 안전한 표 OCR</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    table { border-collapse: collapse; margin-top: 20px; }
+    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
     td { border: 1px solid #000; padding: 4px 8px; text-align: center; }
     #preview { margin-top: 10px; max-width: 100%; height: auto; border: 1px solid #ccc; }
     #loader { margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>이미지 → 실제 표 OCR</h1>
+  <h1>이미지 → 표 OCR 테스트</h1>
 
   <input type="file" id="imageInput" accept="image/*">
   <div>
@@ -42,50 +42,36 @@
         Tesseract.recognize(reader.result, 'kor+eng', { logger: m => console.log(m) })
         .then(({ data }) => {
           const tsv = (data.tsv || '').split('\n').slice(1);
-          const lines = [];
+          const rowsMap = new Map();
 
-          // 글자 좌표 기준으로 행(row) 생성
+          // TSV 글자 단위 안전 처리
           tsv.forEach(line => {
             const parts = line.split('\t');
-            const text = parts[11] ? parts[11].trim() : '';
+            if (parts.length < 12) return; // text 필드 없으면 건너뜀
+            const text = parts[11].trim();
+            if (!text) return;
+
             const top = parseInt(parts[3] || 0);
             const left = parseInt(parts[2] || 0);
 
-            if (!text) return;
-
-            let row = lines.find(r => Math.abs(r.top - top) < 10);
-            if (!row) {
-              row = { top, cells: [] };
-              lines.push(row);
-            }
-            row.cells.push({ left, text });
+            // 동일 top 좌표끼리 행 그룹
+            if (!rowsMap.has(top)) rowsMap.set(top, []);
+            rowsMap.get(top).push({ left, text });
           });
 
-          lines.sort((a,b) => a.top - b.top);
+          // 행 정렬
+          const sortedRows = Array.from(rowsMap.entries()).sort((a,b) => a[0]-b[0]);
 
-          // 각 행에서 열 추정 및 colspan 처리
+          // HTML 테이블 생성
           const table = document.createElement('table');
-          lines.forEach(row => {
-            row.cells.sort((a,b) => a.left - b.left);
+          sortedRows.forEach(([_, cells]) => {
+            cells.sort((a,b) => a.left - b.left);
             const tr = document.createElement('tr');
-
-            for (let i = 0; i < row.cells.length; i++) {
-              const cell = row.cells[i];
+            cells.forEach(cell => {
               const td = document.createElement('td');
               td.textContent = cell.text;
-
-              // 다음 셀과 간격이 크면 colspan 적용
-              let colspan = 1;
-              while (i + 1 < row.cells.length &&
-                     row.cells[i+1].left - (cell.left + 50) > 20) { // 50px 글자 폭 + 20px 여유
-                colspan++;
-                i++;
-              }
-              if (colspan > 1) td.colSpan = colspan;
-
               tr.appendChild(td);
-            }
-
+            });
             table.appendChild(tr);
           });
 
