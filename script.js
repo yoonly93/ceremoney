@@ -44,25 +44,28 @@ function resetAppState() {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-// ===== 페이지 로딩 시 초기화 및 공유 데이터 체크 =====
+// ===== 페이지 로딩 시 초기화 =====
 window.addEventListener('DOMContentLoaded', () => {
   resetAppState();
+  handleSharedData();
+});
 
+// ===== 공유 데이터 처리 =====
+function handleSharedData() {
   const params = new URLSearchParams(window.location.search);
-  if (params.has('data')) {
+  const dataParam = params.get('data');
+  if (dataParam) {
     try {
-      const decoded = JSON.parse(decodeURIComponent(atob(params.get('data'))));
-      if (Array.isArray(decoded)) {
-        extractedData = decoded;
-        resultsSection.classList.add('active');
-        if (sharedBanner) sharedBanner.classList.add('active');
+      extractedData = JSON.parse(decodeURIComponent(atob(dataParam)));
+      if (extractedData && extractedData.length) {
         displayResults();
+        if (sharedBanner) sharedBanner.classList.add('active');
       }
-    } catch (e) {
-      console.warn('공유 데이터 파싱 실패:', e);
+    } catch {
+      // 파싱 실패 시 무시
     }
   }
-});
+}
 
 // ===== 업로드 & 미리보기 =====
 uploadArea.addEventListener('click', () => fileInput.click());
@@ -75,19 +78,14 @@ function handleFiles(files) {
   const validFiles = Array.from(files).filter(f => ['image/jpeg','image/jpg','image/png'].includes(f.type));
   if (!validFiles.length) { showNotification('JPG 또는 PNG 파일만 업로드 가능합니다'); return; }
 
-  let newFiles = [];
-  validFiles.forEach(f => {
-    if (!uploadedFiles.some(existing => existing.name === f.name)) {
-      uploadedFiles.push(f);
-      newFiles.push(f);
+  // 중복 체크
+  for (let file of validFiles) {
+    if (uploadedFiles.some(f => f.name === file.name)) {
+      showNotification(`이미 업로드된 파일: ${file.name}`);
+      continue;
     }
-  });
-
-  if (!newFiles.length) {
-    showNotification('이미 업로드된 파일은 중복으로 추가할 수 없습니다');
-    return;
+    uploadedFiles.push(file);
   }
-
   displayPreviews();
 }
 
@@ -116,30 +114,54 @@ function removeFile(idx) {
   displayPreviews();
 }
 
-// ===== OCR 처리 (더미 데이터 제거, 실제 OCR 연결 필요) =====
+// ===== OCR 처리 =====
 processBtn.addEventListener('click', async () => {
-  if (!uploadedFiles.length) { showNotification('이미지를 업로드해주세요'); return; }
+  if (!uploadedFiles.length) return;
 
   loading.classList.add('active');
   uploadArea.style.display = 'none';
   previewSection.style.display = 'none';
 
-  // TODO: 실제 OCR 연결 필요
-  // 예시: extractedData = await performOCR(uploadedFiles);
-  setTimeout(() => {
-    extractedData = []; // 현재는 더미 제거
-    loading.classList.remove('active');
-    displayResults();
-  }, 1500);
+  extractedData = [];
+
+  for (let file of uploadedFiles) {
+    const text = await Tesseract.recognize(file, 'kor', { logger: m => console.log(m) });
+    const rows = parseOCRText(text.data.text);
+    extractedData.push(...rows);
+  }
+
+  loading.classList.remove('active');
+  displayResults();
 });
 
+// ===== OCR 텍스트 파싱 규칙 =====
+function parseOCRText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+  const results = [];
+  lines.forEach((line, idx) => {
+    // 금액 처리: "원100,-" → 100000원
+    let amountMatch = line.match(/원(\d+),-/);
+    let amount = amountMatch ? parseInt(amountMatch[1]) * 1000 : 0;
+
+    // 비고 예시: 大1, 小1 등
+    let notesMatch = line.match(/(大|小)[0-9]+/);
+    let notes = notesMatch ? notesMatch[0] : '';
+
+    // 이름 추출: 금액과 비고를 제외한 나머지
+    let name = line.replace(/원\d+,-/, '').replace(/(大|小)[0-9]+/, '').trim();
+
+    results.push({ number: idx+1, name: name, amount: amount, notes: notes });
+  });
+  return results;
+}
+
+// ===== 결과 표시 =====
 function displayResults() {
   resultsSection.classList.add('active');
   tableBody.innerHTML = '';
   let total = 0;
-
   extractedData.forEach(row => {
-    let amountNum = parseOCRAmount(row.amount);
+    const amountNum = row.amount;
     total += amountNum;
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -149,18 +171,8 @@ function displayResults() {
       <td>${row.notes}</td>`;
     tableBody.appendChild(tr);
   });
-
   totalAmount.textContent = formatAmount(total) + '원';
   totalKorean.textContent = convertToKorean(total);
-}
-
-// ===== 금액 및 OCR 룰 처리 =====
-function parseOCRAmount(raw) {
-  if (!raw) return 0;
-  // 예: "원100,-" → 100,000원
-  const match = raw.match(/원(\d+),-/);
-  if (match) return parseInt(match[1]) * 1000;
-  return parseInt(raw.replace(/,/g, '')) || 0;
 }
 
 function formatAmount(num) { return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
@@ -174,7 +186,6 @@ function convertToKorean(amount) {
 
 // ===== CSV 다운로드 =====
 downloadBtn.addEventListener('click', () => {
-  if (!extractedData.length) { showNotification('저장할 데이터가 없습니다'); return; }
   const csv = generateCSV();
   const blob = new Blob(['\ufeff'+csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -183,7 +194,6 @@ downloadBtn.addEventListener('click', () => {
   link.click();
   showNotification('CSV 파일이 다운로드되었습니다');
 });
-
 function generateCSV() {
   let csv='번호,성명,금액,비고\n';
   extractedData.forEach(r => { csv+=`${r.number},${r.name},${r.amount},${r.notes}\n`; });
@@ -192,7 +202,6 @@ function generateCSV() {
 
 // ===== 공유 링크 복사 =====
 copyLinkBtn.addEventListener('click', async () => {
-  if (!extractedData.length) { showNotification('공유할 데이터가 없습니다'); return; }
   try {
     const encoded = btoa(encodeURIComponent(JSON.stringify(extractedData)));
     const shareUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
